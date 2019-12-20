@@ -12,6 +12,7 @@ func TestConsumer(t *testing.T) {
   var zeroToFive []int
   var threeToSeven []int
   var sevensTo28 []int
+  var timesTen []int
   var oneToThreePtr []*int
   onePtr := new(int)
   twoPtr := new(int)
@@ -19,6 +20,14 @@ func TestConsumer(t *testing.T) {
   *twoPtr = 2
   consumer := goconsume.Composite(
       nilConsumer{},
+      goconsume.ModFilter(
+          goconsume.Slice(goconsume.AppendTo(&timesTen), 0, 100),
+          func(ptr interface{}) bool {
+            p := ptr.(*int)
+            *p *= 10
+            return true
+          },
+          new(int)),
       goconsume.Slice(goconsume.AppendTo(&zeroToFive), 0, 5),
       goconsume.Slice(goconsume.AppendTo(&threeToSeven), 3, 7),
       goconsume.Slice(goconsume.AppendPtrsTo(&oneToThreePtr), 1, 3),
@@ -77,7 +86,9 @@ func feedInts(t *testing.T, consumer goconsume.Consumer) {
   assert := assert.New(t)
   idx := 0
   for consumer.CanConsume() {
-    consumer.Consume(&idx)
+    nidx := idx
+    consumer.Consume(&nidx)
+    assert.Equal(idx, nidx)
     idx++
   }
   assert.Panics(func() {

@@ -81,17 +81,30 @@ func All(filters ...FilterFunc) FilterFunc {
   }
 }
 
+// ModFilter works like Filter except that the consume method of the returned
+// consumer makes a defensive copy of the value passed to it before invoking
+// the filter. This way the filter function can modify the value in place
+// before passing it to the wrapped consumer without unwanted side effects.
+// valuePtr points to value that will hold the defensive copies.
+func ModFilter(
+    consumer Consumer, filter FilterFunc, valuePtr interface{}) Consumer {
+  return &filterConsumer{
+      consumer: consumer, filter:filter, valuePtr: valuePtr}
+}
+
 // Filter returns a Consumer that passes only filtered values onto consumer.
 // If filter returns false for a value, the returned Consumer ignores that
 // value. The CanConsume() method of returned consumer returns true if and
 // only if the CanConsume() method of consumer returns true.
 func Filter(consumer Consumer, filter FilterFunc) Consumer {
-  return &filterConsumer{consumer: consumer, filter: filter}
+  return &filterConsumer{
+      consumer: consumer, filter: filter, valuePtr: nil}
 }
 
 type filterConsumer struct {
   consumer Consumer
   filter FilterFunc
+  valuePtr interface{}
 }
 
 func (f *filterConsumer) CanConsume() bool {
@@ -101,6 +114,11 @@ func (f *filterConsumer) CanConsume() bool {
 func (f *filterConsumer) Consume(ptr interface{}) {
   if !f.CanConsume() {
     panic(kCantConsume)
+  }
+  if f.valuePtr != nil {
+    value := reflect.ValueOf(f.valuePtr).Elem()
+    value.Set(reflect.ValueOf(ptr).Elem())
+    ptr = f.valuePtr
   }
   if f.filter(ptr) {
     f.consumer.Consume(ptr)

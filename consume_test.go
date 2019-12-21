@@ -7,6 +7,51 @@ import (
   "github.com/stretchr/testify/assert"
 )
 
+func TestPageConsumer(t *testing.T) {
+  assert := assert.New(t)
+  var arr []int
+  var morePages bool
+  pager := goconsume.Page(0, 5, &arr, &morePages)
+  feedInts(t, pager)
+  pager.Finalize()
+  assert.Equal([]int{0,1,2,3,4}, arr)
+  assert.True(morePages)
+  assert.False(pager.CanConsume())
+  assert.Panics(func() { pager.Consume(new(int)) })
+
+  pager = goconsume.Page(3, 5, &arr, &morePages)
+  feedInts(t, pager)
+  pager.Finalize()
+  assert.Equal([]int{15,16,17,18,19}, arr)
+  assert.True(morePages)
+  assert.False(pager.CanConsume())
+  assert.Panics(func() { pager.Consume(new(int)) })
+
+  pager = goconsume.Page(2, 5, &arr, &morePages)
+  feedInts(t, goconsume.Slice(pager, 0, 15))
+  pager.Finalize()
+  assert.Equal([]int{10,11,12,13,14}, arr)
+  assert.False(morePages)
+  assert.False(pager.CanConsume())
+  assert.Panics(func() { pager.Consume(new(int)) })
+
+  pager = goconsume.Page(2, 5, &arr, &morePages)
+  feedInts(t, goconsume.Slice(pager, 0, 11))
+  pager.Finalize()
+  assert.Equal([]int{10}, arr)
+  assert.False(morePages)
+  assert.False(pager.CanConsume())
+  assert.Panics(func() { pager.Consume(new(int)) })
+
+  pager = goconsume.Page(2, 5, &arr, &morePages)
+  feedInts(t, goconsume.Slice(pager, 0, 10))
+  pager.Finalize()
+  assert.Equal([]int{}, arr)
+  assert.False(morePages)
+  assert.False(pager.CanConsume())
+  assert.Panics(func() { pager.Consume(new(int)) })
+}
+
 func TestConsumer(t *testing.T) {
   assert := assert.New(t)
   var zeroToFive []int

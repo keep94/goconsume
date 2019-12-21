@@ -21,6 +21,16 @@ type Consumer interface {
   Consume(ptr interface{})
 }
 
+// ConsumeFinalizer adds a Finalize method to Consumer.
+type ConsumeFinalizer interface {
+  Consumer
+
+  // Caller calls Finalize after it is done passing values to this consumer.
+  // Once caller calls Finalize(), CanConsume() returns false and Consume()
+  // panics.
+  Finalize()
+}
+
 // AppendTo returns a Consumer that appends to aValueSlicePointer.
 // aValueSlicePointer is a pointer to a slice of values supporting
 // assignment.
@@ -99,6 +109,66 @@ func ModFilter(
 func Filter(consumer Consumer, filter FilterFunc) Consumer {
   return &filterConsumer{
       consumer: consumer, filter: filter, valuePtr: nil}
+}
+
+// Page returns a consumer that does pagination. The items in page fetched
+// get stored in the slice pointed to by aValueSlicePointer.
+// If there are more pages after page fetched, Page sets morePages to true;
+// otherwise, it sets morePages to false. Note that the values stored at
+// aValueSlicePointer and morePages are undefined until caller calls
+// Finalize() on returned ConsumeFinalizer.
+func Page(
+    zeroBasedPageNo int,
+    itemsPerPage int,
+    aValueSlicePointer interface{},
+    morePages *bool) ConsumeFinalizer {
+  ensureCapacity(aValueSlicePointer, itemsPerPage + 1)
+  truncateTo(aValueSlicePointer, 0)
+  consumer := AppendTo(aValueSlicePointer)
+  consumer = Slice(
+      consumer,
+      zeroBasedPageNo * itemsPerPage,
+      (zeroBasedPageNo + 1) * itemsPerPage + 1)
+  return &pageConsumer{
+      Consumer: consumer,
+      itemsPerPage: itemsPerPage,
+      aValueSlicePointer: aValueSlicePointer,
+      morePages: morePages}
+}
+
+type pageConsumer struct {
+  Consumer
+  itemsPerPage int
+  aValueSlicePointer interface{}
+  morePages *bool
+}
+
+func (p *pageConsumer) Finalize() {
+  p.Consumer = nilConsumer{}
+  if lengthOfSlicePtr(p.aValueSlicePointer) == p.itemsPerPage + 1 {
+    *p.morePages = true
+    truncateTo(p.aValueSlicePointer, p.itemsPerPage)
+  } else {
+    *p.morePages = false
+  }
+}
+
+func ensureCapacity(aSlicePointer interface{}, capacity int) {
+  value := reflect.ValueOf(aSlicePointer).Elem()
+  if value.Cap() < capacity {
+    typ := value.Type()
+    value.Set(reflect.MakeSlice(typ, 0, capacity))
+  }
+}
+
+func truncateTo(aSlicePointer interface{}, newLength int) {
+  value := reflect.ValueOf(aSlicePointer).Elem()
+  value.Set(value.Slice(0, newLength))
+}
+
+func lengthOfSlicePtr(aSlicePointer interface{}) int {
+  value := reflect.ValueOf(aSlicePointer).Elem()
+  return value.Len()
 }
 
 type filterConsumer struct {
@@ -213,4 +283,15 @@ func checkSliceValue(
     panic("a slice of pointers is expected.")
   }
   return result
+}
+
+type nilConsumer struct {
+}
+
+func (n nilConsumer) CanConsume() bool {
+  return false
+}
+
+func (n nilConsumer) Consume(ptr interface{}) {
+  panic(kCantConsume)
 }

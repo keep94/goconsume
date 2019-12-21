@@ -94,12 +94,16 @@ func All(filters ...FilterFunc) FilterFunc {
 // ModFilter works like Filter except that the consume method of the returned
 // consumer makes a defensive copy of the value passed to it before invoking
 // the filter. This way the filter function can modify the value in place
-// before passing it to the wrapped consumer without unwanted side effects.
-// valuePtr points to value that will hold the defensive copies.
+// before passing it to the wrapped consumer without unwanted side effects
+// for the caller. valuePtr is a pointer to the type of value being consumed.
 func ModFilter(
     consumer Consumer, filter FilterFunc, valuePtr interface{}) Consumer {
+  spareValuePtr :=reflect.New(reflect.TypeOf(valuePtr).Elem())
   return &filterConsumer{
-      consumer: consumer, filter:filter, valuePtr: valuePtr}
+      consumer: consumer,
+      filter:filter,
+      valuePtr: spareValuePtr.Interface(),
+      value: spareValuePtr.Elem()}
 }
 
 // Filter returns a Consumer that passes only filtered values onto consumer.
@@ -108,7 +112,7 @@ func ModFilter(
 // only if the CanConsume() method of consumer returns true.
 func Filter(consumer Consumer, filter FilterFunc) Consumer {
   return &filterConsumer{
-      consumer: consumer, filter: filter, valuePtr: nil}
+      consumer: consumer, filter: filter}
 }
 
 // Page returns a consumer that does pagination. The items in page fetched
@@ -175,6 +179,7 @@ type filterConsumer struct {
   consumer Consumer
   filter FilterFunc
   valuePtr interface{}
+  value reflect.Value
 }
 
 func (f *filterConsumer) CanConsume() bool {
@@ -186,8 +191,7 @@ func (f *filterConsumer) Consume(ptr interface{}) {
     panic(kCantConsume)
   }
   if f.valuePtr != nil {
-    value := reflect.ValueOf(f.valuePtr).Elem()
-    value.Set(reflect.ValueOf(ptr).Elem())
+    f.value.Set(reflect.ValueOf(ptr).Elem())
     ptr = f.valuePtr
   }
   if f.filter(ptr) {

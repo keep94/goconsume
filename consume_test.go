@@ -72,7 +72,7 @@ func TestConsumer(t *testing.T) {
             *p *= 10
             return true
           },
-          new(int)),
+          (*int)(nil)),
       goconsume.Slice(goconsume.AppendTo(&zeroToFive), 0, 5),
       goconsume.Slice(goconsume.AppendTo(&threeToSeven), 3, 7),
       goconsume.Slice(goconsume.AppendPtrsTo(&oneToThreePtr), 1, 3),
@@ -87,6 +87,8 @@ func TestConsumer(t *testing.T) {
   assert.Equal([]int{3, 4, 5, 6}, threeToSeven)
   assert.Equal([]*int{onePtr, twoPtr}, oneToThreePtr)
   assert.Equal([]int{7, 14, 21}, sevensTo28)
+  assert.Equal(10, timesTen[1])
+  assert.Equal(20, timesTen[2])
 }
 
 func TestSlice(t *testing.T) {

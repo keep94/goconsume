@@ -63,7 +63,7 @@ func TestConsumer(t *testing.T) {
   twoPtr := new(int)
   *onePtr = 1
   *twoPtr = 2
-  consumer := goconsume.Composite(
+  consumer := goconsume.Compose(
       nilConsumer{},
       goconsume.ModFilter(
           goconsume.Slice(goconsume.AppendTo(&timesTen), 0, 100),

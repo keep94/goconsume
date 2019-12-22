@@ -61,11 +61,11 @@ func AppendPtrsTo(aPointerSlicePointer interface{}) Consumer {
   return &appendConsumer{buffer: aSliceValue, allocType: allocType}
 }
 
-// Composite returns consumers as a single Consumer. When returned consumer
+// Compose returns consumers as a single Consumer. When returned consumer
 // consumes a value, each consumer in consumers that is able to consume a
 // value consumes that value. CanConsume() of returned consumer returns false
 // when the CanConsume() method of each consumer in consumers returns false.
-func Composite(consumers ...Consumer) Consumer {
+func Compose(consumers ...Consumer) Consumer {
   copyOfConsumers := make([]Consumer, len(consumers))
   copy(copyOfConsumers, consumers)
   result := &multiConsumer{consumers: copyOfConsumers}

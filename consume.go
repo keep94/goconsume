@@ -31,6 +31,19 @@ type ConsumeFinalizer interface {
   Finalize()
 }
 
+// ConsumerFunc can always consume.
+type ConsumerFunc func(ptr interface{})
+
+// Consume invokes c, this function.
+func (c ConsumerFunc) Consume(ptr interface{}) {
+  c(ptr)
+}
+
+// CanConsume always returns true.
+func (c ConsumerFunc) CanConsume() bool {
+  return true
+}
+
 // AppendTo returns a Consumer that appends to aValueSlicePointer.
 // aValueSlicePointer is a pointer to a slice of values supporting
 // assignment.

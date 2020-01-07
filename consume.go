@@ -120,7 +120,7 @@ func ModFilter(
     consumer Consumer, filter FilterFunc, valuePtr interface{}) Consumer {
   spareValuePtr :=reflect.New(reflect.TypeOf(valuePtr).Elem())
   return &filterConsumer{
-      consumer: consumer,
+      Consumer: consumer,
       filter:filter,
       valuePtr: spareValuePtr.Interface(),
       value: spareValuePtr.Elem()}
@@ -132,7 +132,7 @@ func ModFilter(
 // only if the CanConsume() method of consumer returns true.
 func Filter(consumer Consumer, filter FilterFunc) Consumer {
   return &filterConsumer{
-      consumer: consumer, filter: filter}
+      Consumer: consumer, filter: filter}
 }
 
 // Page returns a consumer that does pagination. The items in page fetched
@@ -196,14 +196,10 @@ func lengthOfSlicePtr(aSlicePointer interface{}) int {
 }
 
 type filterConsumer struct {
-  consumer Consumer
+  Consumer
   filter FilterFunc
   valuePtr interface{}
   value reflect.Value
-}
-
-func (f *filterConsumer) CanConsume() bool {
-  return f.consumer.CanConsume()
 }
 
 func (f *filterConsumer) Consume(ptr interface{}) {
@@ -213,7 +209,7 @@ func (f *filterConsumer) Consume(ptr interface{}) {
     ptr = f.valuePtr
   }
   if f.filter(ptr) {
-    f.consumer.Consume(ptr)
+    f.Consumer.Consume(ptr)
   }
 }
 

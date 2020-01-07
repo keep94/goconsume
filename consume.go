@@ -44,6 +44,13 @@ func (c ConsumerFunc) CanConsume() bool {
   return true
 }
 
+// MustCanConsume panics if c cannot consume
+func MustCanConsume(c Consumer) {
+  if !c.CanConsume() {
+    panic(kCantConsume)
+  }
+}
+
 // AppendTo returns a Consumer that appends to aValueSlicePointer.
 // aValueSlicePointer is a pointer to a slice of values supporting
 // assignment.
@@ -200,9 +207,7 @@ func (f *filterConsumer) CanConsume() bool {
 }
 
 func (f *filterConsumer) Consume(ptr interface{}) {
-  if !f.CanConsume() {
-    panic(kCantConsume)
-  }
+  MustCanConsume(f)
   if f.valuePtr != nil {
     f.value.Set(reflect.ValueOf(ptr).Elem())
     ptr = f.valuePtr
@@ -224,9 +229,7 @@ func (s *sliceConsumer) CanConsume() bool {
 }
 
 func (s *sliceConsumer) Consume(ptr interface{}) {
-  if !s.CanConsume() {
-    panic(kCantConsume)
-  }
+  MustCanConsume(s)
   if s.idx >= s.start {
     s.consumer.Consume(ptr)
   }
@@ -242,9 +245,7 @@ func (m *multiConsumer) CanConsume() bool {
 }
 
 func (m *multiConsumer) Consume(ptr interface{}) {
-  if !m.CanConsume() {
-    panic(kCantConsume)
-  }
+  MustCanConsume(m)
   for _, consumer := range m.consumers {
     consumer.Consume(ptr)
   }

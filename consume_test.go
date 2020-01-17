@@ -76,12 +76,13 @@ func TestConsumer(t *testing.T) {
       goconsume.Slice(goconsume.AppendTo(&zeroToFive), 0, 5),
       goconsume.Slice(goconsume.AppendTo(&threeToSeven), 3, 7),
       goconsume.Slice(goconsume.AppendPtrsTo(&oneToThreePtr), 1, 3),
-      goconsume.Filter(
+      goconsume.ModFilter(
           goconsume.Slice(goconsume.AppendTo(&sevensTo28), 1, 4),
           func(ptr interface{}) bool {
             i := *ptr.(*int)
             return i % 7 == 0
-          }))
+          },
+          (*int)(nil)))
   feedInts(t, consumer)
   assert.Equal([]int{0, 1, 2, 3, 4}, zeroToFive)
   assert.Equal([]int{3, 4, 5, 6}, threeToSeven)
@@ -98,15 +99,16 @@ func TestSlice(t *testing.T) {
   assert.Equal([]int{0, 1, 2, 3, 4}, zeroToFive)
 }
 
-func TestFilter(t *testing.T) {
+func TestModFilter(t *testing.T) {
   assert := assert.New(t)
   var sevensTo28 []int
-  feedInts(t, goconsume.Filter(
+  feedInts(t, goconsume.ModFilter(
       goconsume.Slice(goconsume.AppendTo(&sevensTo28), 1, 4),
       func(ptr interface{}) bool {
         i := *ptr.(*int)
         return i % 7 == 0
-      }))
+      },
+      (*int)(nil)))
   assert.Equal([]int{7, 14, 21}, sevensTo28)
 }
 

@@ -111,11 +111,16 @@ func All(filters ...FilterFunc) FilterFunc {
   }
 }
 
-// ModFilter works like Filter except that the consume method of the returned
-// consumer makes a defensive copy of the value passed to it before invoking
-// the filter. This way the filter function can modify the value in place
-// before passing it to the wrapped consumer without unwanted side effects
-// for the caller. valuePtr is a pointer to the type of value being consumed.
+// ModFilter returns a Consumer that passes only filtered values onto consumer.
+// If filter returns false for a value, the returned Consumer ignores that
+// value.  The CanConsume() method of returned Consumer returns true if and
+// only if the CanConsume() method of consumer returns true. filter is
+// allowed to change the value passed to it in which case consumer gets
+// the changed value. valuePtr is a pointer to the type of value being
+// consumed. Callers generally pass nil for it like this:
+// (*TypeBeingConsumed)(nil). ModFilter uses valuePtr to allocate space to
+// store a copy of the value being consumed so that filter can safely change
+// it in case there are multiple consumers consuming the same value.
 func ModFilter(
     consumer Consumer, filter FilterFunc, valuePtr interface{}) Consumer {
   spareValuePtr :=reflect.New(reflect.TypeOf(valuePtr).Elem())
@@ -124,15 +129,6 @@ func ModFilter(
       filter:filter,
       valuePtr: spareValuePtr.Interface(),
       value: spareValuePtr.Elem()}
-}
-
-// Filter returns a Consumer that passes only filtered values onto consumer.
-// If filter returns false for a value, the returned Consumer ignores that
-// value. The CanConsume() method of returned consumer returns true if and
-// only if the CanConsume() method of consumer returns true.
-func Filter(consumer Consumer, filter FilterFunc) Consumer {
-  return &filterConsumer{
-      Consumer: consumer, filter: filter}
 }
 
 // Page returns a consumer that does pagination. The items in page fetched
@@ -204,12 +200,9 @@ type filterConsumer struct {
 
 func (f *filterConsumer) Consume(ptr interface{}) {
   MustCanConsume(f)
-  if f.valuePtr != nil {
-    f.value.Set(reflect.ValueOf(ptr).Elem())
-    ptr = f.valuePtr
-  }
-  if f.filter(ptr) {
-    f.Consumer.Consume(ptr)
+  f.value.Set(reflect.ValueOf(ptr).Elem())
+  if f.filter(f.valuePtr) {
+    f.Consumer.Consume(f.valuePtr)
   }
 }
 

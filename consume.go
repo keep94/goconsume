@@ -17,7 +17,9 @@ type Consumer interface {
   CanConsume() bool
 
   // Consume consumes the value that ptr points to. Consume panics if
-  // CanConsume() returns false.
+  // CanConsume() returns false. Implementations of Consume must refrain
+  // from changing the value that ptr points to in case multiple consumers
+  // are consuming that same value.
   Consume(ptr interface{})
 }
 

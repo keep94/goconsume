@@ -17,9 +17,7 @@ type Consumer interface {
   CanConsume() bool
 
   // Consume consumes the value that ptr points to. Consume panics if
-  // CanConsume() returns false. Implementations of Consume must refrain
-  // from changing the value that ptr points to in case multiple consumers
-  // are consuming that same value.
+  // CanConsume() returns false.
   Consume(ptr interface{})
 }
 
@@ -74,10 +72,17 @@ func AppendPtrsTo(aPointerSlicePointer interface{}) Consumer {
 // consumes a value, each consumer in consumers that is able to consume a
 // value consumes that value. CanConsume() of returned consumer returns false
 // when the CanConsume() method of each consumer in consumers returns false.
-func Compose(consumers ...Consumer) Consumer {
-  copyOfConsumers := make([]Consumer, len(consumers))
-  copy(copyOfConsumers, consumers)
-  result := &multiConsumer{consumers: copyOfConsumers}
+// valuePtr is a pointer to the type of value being consumed. Callers
+// generally pass nil for it like this: (*TypeBeingConsumed)(nil).
+// Compose uses valuePtr to pass a copy of the value being consumed to each
+// Consumer so that if one of the consumers changes the value being consumed,
+// it doesn't affect the rest of the consumers.
+func Compose(consumers []Consumer, valuePtr interface{}) Consumer {
+  consumerWithValueList := make([]*consumerWithValue, len(consumers))
+  for i := range consumers {
+    consumerWithValueList[i] = newConsumerWithValue(consumers[i], valuePtr)
+  }
+  result := &multiConsumer{consumers: consumerWithValueList}
   result.filterFinished()
   return result
 }
@@ -113,24 +118,15 @@ func All(filters ...FilterFunc) FilterFunc {
   }
 }
 
-// ModFilter returns a Consumer that passes only filtered values onto consumer.
+// Filter returns a Consumer that passes only filtered values onto consumer.
 // If filter returns false for a value, the returned Consumer ignores that
 // value.  The CanConsume() method of returned Consumer returns true if and
-// only if the CanConsume() method of consumer returns true. filter is
-// allowed to change the value passed to it in which case consumer gets
-// the changed value. valuePtr is a pointer to the type of value being
-// consumed. Callers generally pass nil for it like this:
-// (*TypeBeingConsumed)(nil). ModFilter uses valuePtr to allocate space to
-// store a copy of the value being consumed so that filter can safely change
-// it in case there are multiple consumers consuming the same value.
-func ModFilter(
-    consumer Consumer, filter FilterFunc, valuePtr interface{}) Consumer {
-  spareValuePtr :=reflect.New(reflect.TypeOf(valuePtr).Elem())
+// only if the CanConsume() method of consumer returns true.
+func Filter(
+    consumer Consumer, filter FilterFunc) Consumer {
   return &filterConsumer{
       Consumer: consumer,
-      filter:filter,
-      valuePtr: spareValuePtr.Interface(),
-      value: spareValuePtr.Elem()}
+      filter:filter}
 }
 
 // Page returns a consumer that does pagination. The items in page fetched
@@ -196,15 +192,12 @@ func lengthOfSlicePtr(aSlicePointer interface{}) int {
 type filterConsumer struct {
   Consumer
   filter FilterFunc
-  valuePtr interface{}
-  value reflect.Value
 }
 
 func (f *filterConsumer) Consume(ptr interface{}) {
   MustCanConsume(f)
-  f.value.Set(reflect.ValueOf(ptr).Elem())
-  if f.filter(f.valuePtr) {
-    f.Consumer.Consume(f.valuePtr)
+  if f.filter(ptr) {
+    f.Consumer.Consume(ptr)
   }
 }
 
@@ -227,8 +220,29 @@ func (s *sliceConsumer) Consume(ptr interface{}) {
   s.idx++
 }
 
+type consumerWithValue struct {
+  Consumer
+  valuePtr interface{}
+  value reflect.Value
+}
+
+func newConsumerWithValue(
+    consumer Consumer, valuePtr interface{}) *consumerWithValue {
+  spareValuePtr := reflect.New(reflect.TypeOf(valuePtr).Elem())
+  return &consumerWithValue{
+      Consumer: consumer,
+      valuePtr: spareValuePtr.Interface(),
+      value: spareValuePtr.Elem()}
+}
+
+func (c *consumerWithValue) Consume(ptr interface{}) {
+  MustCanConsume(c)
+  c.value.Set(reflect.ValueOf(ptr).Elem())
+  c.Consumer.Consume(c.valuePtr)
+}
+
 type multiConsumer struct {
-  consumers []Consumer
+  consumers []*consumerWithValue
 }
 
 func (m *multiConsumer) CanConsume() bool {
@@ -250,6 +264,9 @@ func (m *multiConsumer) filterFinished() {
       m.consumers[idx] = m.consumers[i]
       idx++
     }
+  }
+  for i := idx; i < len(m.consumers); i++ {
+    m.consumers[i] = nil
   }
   m.consumers = m.consumers[0:idx]
 }

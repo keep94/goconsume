@@ -64,25 +64,25 @@ func TestConsumer(t *testing.T) {
   *onePtr = 1
   *twoPtr = 2
   consumer := goconsume.Compose(
-      nilConsumer{},
-      goconsume.ModFilter(
-          goconsume.Slice(goconsume.AppendTo(&timesTen), 0, 100),
+      []goconsume.Consumer{
+          nilConsumer{},
+          goconsume.Filter(
+              goconsume.Slice(goconsume.AppendTo(&timesTen), 0, 100),
           func(ptr interface{}) bool {
             p := ptr.(*int)
             *p *= 10
             return true
-          },
-          (*int)(nil)),
-      goconsume.Slice(goconsume.AppendTo(&zeroToFive), 0, 5),
-      goconsume.Slice(goconsume.AppendTo(&threeToSeven), 3, 7),
-      goconsume.Slice(goconsume.AppendPtrsTo(&oneToThreePtr), 1, 3),
-      goconsume.ModFilter(
-          goconsume.Slice(goconsume.AppendTo(&sevensTo28), 1, 4),
-          func(ptr interface{}) bool {
-            i := *ptr.(*int)
-            return i % 7 == 0
-          },
-          (*int)(nil)))
+          }),
+          goconsume.Slice(goconsume.AppendTo(&zeroToFive), 0, 5),
+          goconsume.Slice(goconsume.AppendTo(&threeToSeven), 3, 7),
+          goconsume.Slice(goconsume.AppendPtrsTo(&oneToThreePtr), 1, 3),
+          goconsume.Filter(
+              goconsume.Slice(goconsume.AppendTo(&sevensTo28), 1, 4),
+              func(ptr interface{}) bool {
+                i := *ptr.(*int)
+                return i % 7 == 0
+              })},
+          (*int)(nil))
   feedInts(t, consumer)
   assert.Equal([]int{0, 1, 2, 3, 4}, zeroToFive)
   assert.Equal([]int{3, 4, 5, 6}, threeToSeven)
@@ -99,16 +99,15 @@ func TestSlice(t *testing.T) {
   assert.Equal([]int{0, 1, 2, 3, 4}, zeroToFive)
 }
 
-func TestModFilter(t *testing.T) {
+func TestFilter(t *testing.T) {
   assert := assert.New(t)
   var sevensTo28 []int
-  feedInts(t, goconsume.ModFilter(
+  feedInts(t, goconsume.Filter(
       goconsume.Slice(goconsume.AppendTo(&sevensTo28), 1, 4),
       func(ptr interface{}) bool {
         i := *ptr.(*int)
         return i % 7 == 0
-      },
-      (*int)(nil)))
+      }))
   assert.Equal([]int{7, 14, 21}, sevensTo28)
 }
 
@@ -137,7 +136,6 @@ func feedInts(t *testing.T, consumer goconsume.Consumer) {
   for consumer.CanConsume() {
     nidx := idx
     consumer.Consume(&nidx)
-    assert.Equal(idx, nidx)
     idx++
   }
   assert.Panics(func() {

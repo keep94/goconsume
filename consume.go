@@ -51,16 +51,23 @@ func MustCanConsume(c Consumer) {
   }
 }
 
-// AppendTo returns a Consumer that appends to aValueSlicePointer.
-// aValueSlicePointer is a pointer to a slice of values supporting
-// assignment.
+// AppendTo returns a Consumer that appends consumed values to the slice
+// pointed to by aValueSlicePointer. aValueSlicePointer is a pointer to a
+// slice of values supporting assignment. The CanConsume method of returned
+// consumer always returns true.
 func AppendTo(aValueSlicePointer interface{}) Consumer {
   aSliceValue := sliceValueFromP(aValueSlicePointer, false)
   return &appendConsumer{buffer: aSliceValue}
 }
 
-// AppendPtrsTo returns a Consumer that appends to aPointerSlicePointer.
-// aPointerSlicePointer is a pointer to a slice of pointers to values.
+// AppendPtrsTo returns a Consumer that appends consumed values to the slice
+// pointed to by aPointerSlicePointer. Each time the returned Consumer
+// consumes a value, it allocates a new value on the heap, copies the
+// consumed value to that allocated value, and finally appends the pointer
+// to the newly allocated value to the slice pointed to by
+// aPointerSlicePointer. aPointerSlicePointer is a pointer to a slice of
+// pointers to values supporting assignment. The CanConsume method of
+// returned consumer always returns true.
 func AppendPtrsTo(aPointerSlicePointer interface{}) Consumer {
   aSliceValue := sliceValueFromP(aPointerSlicePointer, true)
   aSliceType := aSliceValue.Type()
@@ -122,8 +129,7 @@ func All(filters ...FilterFunc) FilterFunc {
 // If filter returns false for a value, the returned Consumer ignores that
 // value.  The CanConsume() method of returned Consumer returns true if and
 // only if the CanConsume() method of consumer returns true.
-func Filter(
-    consumer Consumer, filter FilterFunc) Consumer {
+func Filter(consumer Consumer, filter FilterFunc) Consumer {
   return &filterConsumer{
       Consumer: consumer,
       filter:filter}

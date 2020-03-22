@@ -51,6 +51,13 @@ func MustCanConsume(c Consumer) {
   }
 }
 
+// Nil returns a consumer that consumes nothing. Calling CanConsume() on
+// returned consumer returns false, and calling Consume() on returned
+// consumer panics.
+func Nil() Consumer {
+  return nilConsumer{}
+}
+
 // AppendTo returns a Consumer that appends consumed values to the slice
 // pointed to by aValueSlicePointer. aValueSlicePointer is a pointer to a
 // slice of values supporting assignment. The CanConsume method of returned

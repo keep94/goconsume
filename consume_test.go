@@ -7,6 +7,13 @@ import (
   "github.com/stretchr/testify/assert"
 )
 
+func TestNil(t *testing.T) {
+  assert := assert.New(t)
+  consumer := goconsume.Nil()
+  assert.False(consumer.CanConsume())
+  assert.Panics(func() { consumer.Consume(new(int)) })
+}
+
 func TestPageConsumer(t *testing.T) {
   assert := assert.New(t)
   var arr []int

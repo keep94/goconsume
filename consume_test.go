@@ -21,6 +21,7 @@ func TestPageConsumer(t *testing.T) {
   pager := goconsume.Page(0, 5, &arr, &morePages)
   feedInts(t, pager)
   pager.Finalize()
+  pager.Finalize() // check idempotency of Finalize
   assert.Equal([]int{0,1,2,3,4}, arr)
   assert.True(morePages)
   assert.False(pager.CanConsume())

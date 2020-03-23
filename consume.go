@@ -172,9 +172,14 @@ type pageConsumer struct {
   itemsPerPage int
   aValueSlicePointer interface{}
   morePages *bool
+  finalized bool
 }
 
 func (p *pageConsumer) Finalize() {
+  if p.finalized {
+    return
+  }
+  p.finalized = true
   p.Consumer = nilConsumer{}
   if lengthOfSlicePtr(p.aValueSlicePointer) == p.itemsPerPage + 1 {
     *p.morePages = true

@@ -71,7 +71,7 @@ func TestConsumer(t *testing.T) {
   twoPtr := new(int)
   *onePtr = 1
   *twoPtr = 2
-  consumer := goconsume.Compose(
+  consumer := goconsume.ComposeWithCopy(
       []goconsume.Consumer{
           nilConsumer{},
           goconsume.Filter(

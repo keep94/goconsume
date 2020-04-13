@@ -82,16 +82,16 @@ func AppendPtrsTo(aPointerSlicePointer interface{}) Consumer {
   return &appendConsumer{buffer: aSliceValue, allocType: allocType}
 }
 
-// Compose returns consumers as a single Consumer. When returned consumer
-// consumes a value, each consumer in consumers that is able to consume a
-// value consumes that value. CanConsume() of returned consumer returns false
-// when the CanConsume() method of each consumer in consumers returns false.
-// valuePtr is a pointer to the type of value being consumed. Callers
-// generally pass nil for it like this: (*TypeBeingConsumed)(nil).
-// Compose uses valuePtr to pass a copy of the value being consumed to each
-// Consumer so that if one of the consumers changes the value being consumed,
-// it doesn't affect the rest of the consumers.
-func Compose(consumers []Consumer, valuePtr interface{}) Consumer {
+// ComposeWithCopy returns consumers as a single Consumer. When returned
+// consumer consumes a value, each consumer in consumers that is able to
+// consume a value consumes that value. CanConsume() of returned consumer
+// returns false when the CanConsume() method of each consumer in consumers
+// returns false. valuePtr is a pointer to the type of value being consumed.
+// Callers generally pass nil for it like this: (*TypeBeingConsumed)(nil).
+// ComposeWithCopy uses valuePtr to pass a copy of the value being consumed
+// to each Consumer so that if one of the consumers changes the value being
+// consumed, it doesn't affect the rest of the consumers.
+func ComposeWithCopy(consumers []Consumer, valuePtr interface{}) Consumer {
   consumerWithValueList := make([]*consumerWithValue, len(consumers))
   for i := range consumers {
     consumerWithValueList[i] = newConsumerWithValue(consumers[i], valuePtr)

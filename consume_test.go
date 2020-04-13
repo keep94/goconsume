@@ -65,6 +65,7 @@ func TestCompose(t *testing.T) {
   var zeroToFive []int
   var timesTen []int
   consumer := goconsume.Compose(
+      goconsume.Nil(),
       goconsume.Copy(
           goconsume.Filter(
               goconsume.Slice(goconsume.AppendTo(&timesTen), 0, 100),
@@ -92,7 +93,7 @@ func TestConsumer(t *testing.T) {
   *twoPtr = 2
   consumer := goconsume.ComposeWithCopy(
       []goconsume.Consumer{
-          nilConsumer{},
+          goconsume.Nil(),
           goconsume.Filter(
               goconsume.Slice(goconsume.AppendTo(&timesTen), 0, 100),
           func(ptr interface{}) bool {
@@ -168,15 +169,4 @@ func feedInts(t *testing.T, consumer goconsume.Consumer) {
   assert.Panics(func() {
     consumer.Consume(&idx)
   })
-}
-
-type nilConsumer struct {
-}
-
-func (n nilConsumer) CanConsume() bool {
-  return false
-}
-
-func (n nilConsumer) Consume(ptr interface{}) {
-  panic("Can't consume")
 }

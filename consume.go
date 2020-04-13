@@ -82,21 +82,44 @@ func AppendPtrsTo(aPointerSlicePointer interface{}) Consumer {
   return &appendConsumer{buffer: aSliceValue, allocType: allocType}
 }
 
-// ComposeWithCopy returns consumers as a single Consumer. When returned
+// Compose returns consumers as a single Consumer. When returned
 // consumer consumes a value, each consumer in consumers that is able to
 // consume a value consumes that value. CanConsume() of returned consumer
 // returns false when the CanConsume() method of each consumer in consumers
-// returns false. valuePtr is a pointer to the type of value being consumed.
-// Callers generally pass nil for it like this: (*TypeBeingConsumed)(nil).
-// ComposeWithCopy uses valuePtr to pass a copy of the value being consumed
-// to each Consumer so that if one of the consumers changes the value being
-// consumed, it doesn't affect the rest of the consumers.
+// returns false. Caller should use the returned Consumer instead of the
+// individual consumers in the consumers slice. Otherwise the CanConsume
+// method of returned consumer may not work correctly.
+func Compose(consumers ...Consumer) Consumer {
+  consumerList := make([]Consumer, len(consumers))
+  copy(consumerList, consumers)
+  result := &multiConsumer{consumers: consumerList}
+  result.filterFinished()
+  return result
+}
+
+// Copy returns a consumer that copies the value it consumes using assignment
+// and passes that copy onto consumer. valuePtr is a pointer to the type of
+// value being consumed. Callers generally pass nil for it like this:
+// (*TypeBeingConsumed)(nil).
+func Copy(consumer Consumer, valuePtr interface{}) Consumer {
+  spareValuePtr := reflect.New(reflect.TypeOf(valuePtr).Elem())
+  return &consumerWithValue{
+      Consumer: consumer,
+      valuePtr: spareValuePtr.Interface(),
+      value: spareValuePtr.Elem()}
+}
+
+// ComposeWithCopy is like Compose except that ComposeWithCopy passes a
+// separate copy using assignment of the value being consumed to each of
+// the consumers. valuePtr is a pointer to the type of value being consumed.
+// Callers generally pass nil for it like this:
+// (*TypeBeingConsumed)(nil).
 func ComposeWithCopy(consumers []Consumer, valuePtr interface{}) Consumer {
-  consumerWithValueList := make([]*consumerWithValue, len(consumers))
+  consumerList := make([]Consumer, len(consumers))
   for i := range consumers {
-    consumerWithValueList[i] = newConsumerWithValue(consumers[i], valuePtr)
+    consumerList[i] = Copy(consumers[i], valuePtr)
   }
-  result := &multiConsumer{consumers: consumerWithValueList}
+  result := &multiConsumer{consumers: consumerList}
   result.filterFinished()
   return result
 }
@@ -244,15 +267,6 @@ type consumerWithValue struct {
   value reflect.Value
 }
 
-func newConsumerWithValue(
-    consumer Consumer, valuePtr interface{}) *consumerWithValue {
-  spareValuePtr := reflect.New(reflect.TypeOf(valuePtr).Elem())
-  return &consumerWithValue{
-      Consumer: consumer,
-      valuePtr: spareValuePtr.Interface(),
-      value: spareValuePtr.Elem()}
-}
-
 func (c *consumerWithValue) Consume(ptr interface{}) {
   MustCanConsume(c)
   c.value.Set(reflect.ValueOf(ptr).Elem())
@@ -260,7 +274,7 @@ func (c *consumerWithValue) Consume(ptr interface{}) {
 }
 
 type multiConsumer struct {
-  consumers []*consumerWithValue
+  consumers []Consumer
 }
 
 func (m *multiConsumer) CanConsume() bool {

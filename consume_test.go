@@ -60,6 +60,25 @@ func TestPageConsumer(t *testing.T) {
   assert.Panics(func() { pager.Consume(new(int)) })
 }
 
+func TestCompose(t *testing.T) {
+  assert := assert.New(t)
+  var zeroToFive []int
+  var timesTen []int
+  consumer := goconsume.Compose(
+      goconsume.Copy(
+          goconsume.Filter(
+              goconsume.Slice(goconsume.AppendTo(&timesTen), 0, 100),
+              func(ptr interface{}) bool {
+                p := ptr.(*int)
+                *p *= 10
+                return true
+              }), (*int)(nil)),
+      goconsume.Slice(goconsume.AppendTo(&zeroToFive), 0, 5),
+  )
+  feedInts(t, consumer)
+  assert.Equal([]int{0, 1, 2, 3, 4}, zeroToFive)
+}
+
 func TestConsumer(t *testing.T) {
   assert := assert.New(t)
   var zeroToFive []int

@@ -82,13 +82,15 @@ func AppendPtrsTo(aPointerSlicePointer interface{}) Consumer {
   return &appendConsumer{buffer: aSliceValue, allocType: allocType}
 }
 
-// Compose returns consumers as a single Consumer. When returned
-// consumer consumes a value, each consumer in consumers that is able to
+// Compose returns the consumers passed to it as a single Consumer. When
+// returned consumer consumes a value, each consumer passed in that is able to
 // consume a value consumes that value. CanConsume() of returned consumer
-// returns false when the CanConsume() method of each consumer in consumers
+// returns false when the CanConsume() method of each consumer passed in
 // returns false. Caller should use the returned Consumer instead of the
-// individual consumers in the consumers slice. Otherwise the CanConsume
-// method of returned consumer may not work correctly.
+// passed in consumers. Otherwise the CanConsume method of returned consumer
+// may not work correctly. The consumers passed to Compose must not modify
+// values being consumed. Wrap any such consumer that modifies the values it
+// consumes with the Copy method or use ComposeWithCopy.
 func Compose(consumers ...Consumer) Consumer {
   consumerList := make([]Consumer, len(consumers))
   copy(consumerList, consumers)

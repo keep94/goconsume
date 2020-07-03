@@ -1,6 +1,7 @@
 package goconsume_test
 
 import (
+  "strconv"
   "testing"
 
   "github.com/keep94/goconsume"
@@ -137,6 +138,23 @@ func TestFilter(t *testing.T) {
         return i % 7 == 0
       }))
   assert.Equal([]int{7, 14, 21}, sevensTo28)
+}
+
+func TestMap(t *testing.T) {
+  assert := assert.New(t)
+  var zeroTo10By2 []string
+  feedInts(t, goconsume.Map(
+      goconsume.Slice(goconsume.AppendTo(&zeroTo10By2), 0, 6),
+      func (srcPtr, destPtr interface{}) bool {
+        src := *srcPtr.(*int)
+        if src % 2 == 1 {
+          return false
+        }
+        *destPtr.(*string) = strconv.Itoa(src)
+        return true
+      },
+      (*string)(nil)))
+  assert.Equal([]string{"0", "2", "4", "6", "8", "10"}, zeroTo10By2)
 }
 
 func TestAll(t *testing.T) {

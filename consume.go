@@ -167,6 +167,30 @@ func Filter(consumer Consumer, filter FilterFunc) Consumer {
       filter:filter}
 }
 
+// MapFunc maps values. It applies a transformation to srcPtr and stores the
+// result in destPtr while leaving srcPtr unchanged. It returns true on
+// success or false if no transformation took place.
+type MapFunc func(srcPtr, destPtr interface{}) bool
+
+// Map returns a Consumer that passes only mapped values onto the consumer
+// parameter. The pointer passsed to returned Consumer gets passed as srcPtr
+// to mapfunc. The destPtr parameter of mapfunc gets passed to the
+// Consume method of the consumer parameter. If mapfunc returns false,
+// the returned Consumer ignores the parameter passed to it and will not call
+// the Consume method of the consumer parameter. valuePtr is pointer to the
+// type of value that the consumer parameter consumes. It is used to create
+// the value that destPtr passed to mapfunc points to. Callers
+// generally pass nil for it like this: (*TypeBeingConsumed)(nil).
+// CanConsume() of returned consumer returns true if and only if the
+// CanConsume() method of the consumer parameter returns true.
+func Map(consumer Consumer, mapfunc MapFunc, valuePtr interface{}) Consumer {
+  spareValuePtr := reflect.New(reflect.TypeOf(valuePtr).Elem())
+  return &mapConsumer{
+      Consumer: consumer,
+      mapfunc: mapfunc,
+      valuePtr: spareValuePtr.Interface()}
+}
+
 // Page returns a consumer that does pagination. The items in page fetched
 // get stored in the slice pointed to by aValueSlicePointer.
 // If there are more pages after page fetched, Page sets morePages to true;
@@ -241,6 +265,19 @@ func (f *filterConsumer) Consume(ptr interface{}) {
   MustCanConsume(f)
   if f.filter(ptr) {
     f.Consumer.Consume(ptr)
+  }
+}
+
+type mapConsumer struct {
+  Consumer
+  mapfunc MapFunc
+  valuePtr interface{}
+}
+
+func (m *mapConsumer) Consume(ptr interface{}) {
+  MustCanConsume(m)
+  if m.mapfunc(ptr, m.valuePtr) {
+    m.Consumer.Consume(m.valuePtr)
   }
 }
 

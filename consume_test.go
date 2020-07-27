@@ -157,6 +157,32 @@ func TestMap(t *testing.T) {
   assert.Equal([]string{"0", "2", "4", "6", "8", "10"}, zeroTo10By2)
 }
 
+func TestAllImmutability(t *testing.T) {
+  assert := assert.New(t)
+  multipleOfTwo := func(ptr interface{}) bool {
+    return (*ptr.(*int)) % 2 == 0
+  }
+  multipleOfThree := func(ptr interface{}) bool {
+    return (*ptr.(*int)) % 3 == 0
+  }
+  filters := []goconsume.FilterFunc{multipleOfTwo, multipleOfThree}
+  allFilter := goconsume.All(filters...)
+  x := 6
+  assert.True(allFilter(&x))
+  x = 10
+  assert.False(allFilter(&x))
+  filters[1] = func(ptr interface{}) bool {
+    return (*ptr.(*int)) % 5 == 0
+  }
+
+  // Even though we mutated the filters array allFilter should still behave
+  // the same as before.
+  x = 6
+  assert.True(allFilter(&x))
+  x = 10
+  assert.False(allFilter(&x))
+}
+
 func TestAll(t *testing.T) {
   assert := assert.New(t)
   multipleOfTwo := func(ptr interface{}) bool {

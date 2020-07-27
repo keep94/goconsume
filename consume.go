@@ -147,8 +147,10 @@ type FilterFunc func(ptr interface{}) bool
 // All returns a FilterFunc that returns true for a given value if and only
 // if all the filters passed to All return true for that same value.
 func All(filters ...FilterFunc) FilterFunc {
+  filterList := make([]FilterFunc, len(filters))
+  copy(filterList, filters)
   return func(ptr interface{}) bool {
-    for _, filter := range filters {
+    for _, filter := range filterList {
       if !filter(ptr) {
         return false
       }

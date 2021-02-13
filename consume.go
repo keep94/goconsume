@@ -6,7 +6,8 @@ import (
 )
 
 const (
-	kCantConsume = "Can't consume"
+	kCantConsume         = "Can't consume"
+	kParamMustReturnBool = "Parameter must return bool"
 )
 
 // Consumer consumes values. The values that Consumer consumes must
@@ -103,6 +104,8 @@ func Compose(consumers ...Consumer) Consumer {
 // and passes that copy onto consumer. valuePtr is a pointer to the type of
 // value being consumed. Callers generally pass nil for it like this:
 // (*TypeBeingConsumed)(nil).
+//
+// Deprecated: Use MapFilter.
 func Copy(consumer Consumer, valuePtr interface{}) Consumer {
 	spareValuePtr := reflect.New(reflect.TypeOf(valuePtr).Elem())
 	return &consumerWithValue{
@@ -116,6 +119,8 @@ func Copy(consumer Consumer, valuePtr interface{}) Consumer {
 // the consumers. valuePtr is a pointer to the type of value being consumed.
 // Callers generally pass nil for it like this:
 // (*TypeBeingConsumed)(nil).
+//
+// Deprecated: Use MapFilter.
 func ComposeWithCopy(consumers []Consumer, valuePtr interface{}) Consumer {
 	consumerList := make([]Consumer, len(consumers))
 	for i := range consumers {
@@ -142,10 +147,14 @@ func Slice(consumer Consumer, start, end int) Consumer {
 // FilterFunc filters values. It returns true if the value should be
 // included and false if value should be excluded. ptr points to the value
 // to be filtered.
+//
+// Deprecated: Use Applier.
 type FilterFunc func(ptr interface{}) bool
 
 // All returns a FilterFunc that returns true for a given value if and only
 // if all the filters passed to All return true for that same value.
+//
+// Deprecated: Use NewApplier.
 func All(filters ...FilterFunc) FilterFunc {
 	filterList := make([]FilterFunc, len(filters))
 	copy(filterList, filters)
@@ -163,6 +172,8 @@ func All(filters ...FilterFunc) FilterFunc {
 // If filter returns false for a value, the returned Consumer ignores that
 // value.  The CanConsume() method of returned Consumer returns true if and
 // only if the CanConsume() method of consumer returns true.
+//
+// Deprecated: Use MapFilter.
 func Filter(consumer Consumer, filter FilterFunc) Consumer {
 	return &filterConsumer{
 		Consumer: consumer,
@@ -172,6 +183,8 @@ func Filter(consumer Consumer, filter FilterFunc) Consumer {
 // MapFunc maps values. It applies a transformation to srcPtr and stores the
 // result in destPtr while leaving srcPtr unchanged. It returns true on
 // success or false if no transformation took place.
+//
+// Deprecated: Use MapFilter.
 type MapFunc func(srcPtr, destPtr interface{}) bool
 
 // Map returns a Consumer that passes only mapped values onto the consumer
@@ -185,12 +198,61 @@ type MapFunc func(srcPtr, destPtr interface{}) bool
 // generally pass nil for it like this: (*TypeBeingConsumed)(nil).
 // CanConsume() of returned consumer returns true if and only if the
 // CanConsume() method of the consumer parameter returns true.
+//
+// Deprecated: Use MapFilter.
 func Map(consumer Consumer, mapfunc MapFunc, valuePtr interface{}) Consumer {
 	spareValuePtr := reflect.New(reflect.TypeOf(valuePtr).Elem())
 	return &mapConsumer{
 		Consumer: consumer,
 		mapfunc:  mapfunc,
 		valuePtr: spareValuePtr.Interface()}
+}
+
+// Interface Applier applies a possible change to a value for MapFilter.
+type Applier interface {
+
+	// Apply applies the possible change always leaving what ptr points to
+	// unchanged. Apply returns nil if ptr should be filtered out; returns
+	// ptr if ptr should be included; or returns a pointer to a new value
+	// if ptr should change. If Apply returns a pointer to a new value, the
+	// new value gets overwritten with each call to Apply.
+	Apply(ptr interface{}) interface{}
+}
+
+// NewApplier creates an applier from multiple functions like the ones
+// passed to MapFilter. The returned Applier can be passed as a parameter
+// to MapFilter or to NewApplier.
+func NewApplier(funcs ...interface{}) Applier {
+	if len(funcs) == 0 {
+		return nilApplier{}
+	} else if len(funcs) == 1 {
+		return newApplier(funcs[0])
+	} else {
+		result := make(sliceApplier, len(funcs))
+		for i := range result {
+			result[i] = newApplier(funcs[i])
+		}
+		return result
+	}
+}
+
+// MapFilter returns a Consumer that passes only filtered and mapped
+// values onto the consumer parameter. The returned Consumer applies
+// each function in funcs to to the value passed to its Consume method.
+// The resulting value is then passed to the Consume method of the
+// consumer parameter. Each function in func returns a bool and takes
+// one or two pointer arguments to values. If a function returns false,
+// it means that the value passed to it should not be consumed. The one
+// argument functions never change the value passed to it as they are
+// simple filters. The 2 argument functions are mappers. They leave their
+// first argument unchanged, but use it to set their second argument.
+// This second argument is what gets passed to the next function in funcs
+// or to consumer if it is the last function in funcs.
+func MapFilter(consumer Consumer, funcs ...interface{}) Consumer {
+	return &mapFilterConsumer{
+		Consumer:   consumer,
+		mapFilters: NewApplier(funcs...),
+	}
 }
 
 // Page returns a consumer that does pagination. The items in page fetched
@@ -393,4 +455,105 @@ func (n nilConsumer) CanConsume() bool {
 
 func (n nilConsumer) Consume(ptr interface{}) {
 	panic(kCantConsume)
+}
+
+func newApplier(f interface{}) Applier {
+	if a, ok := f.(Applier); ok {
+		return a
+	}
+	fvalue := reflect.ValueOf(f)
+	ftype := reflect.TypeOf(f)
+	validateFuncType(ftype)
+	numIn := ftype.NumIn()
+	if numIn == 1 {
+		return &filterApplier{
+			value: fvalue,
+		}
+	} else if numIn == 2 {
+		spareValue := reflect.New(ftype.In(1).Elem())
+		return &mapApplier{
+			value:   fvalue,
+			result:  spareValue,
+			iresult: spareValue.Interface(),
+		}
+	} else {
+		panic("Function parameter must take 1 or 2 parameters")
+	}
+}
+
+func validateFuncType(ftype reflect.Type) {
+	if ftype.Kind() != reflect.Func {
+		panic("Parameter must be a function")
+	}
+	if ftype.NumOut() != 1 {
+		panic(kParamMustReturnBool)
+	}
+	if ftype.Out(0) != reflect.TypeOf(true) {
+		panic(kParamMustReturnBool)
+	}
+	numIn := ftype.NumIn()
+	for i := 0; i < numIn; i++ {
+		if ftype.In(i).Kind() != reflect.Ptr {
+			panic("Function parameter must accept pointer arguments")
+		}
+	}
+}
+
+type filterApplier struct {
+	value reflect.Value
+}
+
+func (f *filterApplier) Apply(ptr interface{}) interface{} {
+	params := [...]reflect.Value{reflect.ValueOf(ptr)}
+	if f.value.Call(params[:])[0].Bool() {
+		return ptr
+	}
+	return nil
+}
+
+type mapApplier struct {
+	value   reflect.Value
+	result  reflect.Value
+	iresult interface{}
+}
+
+func (m *mapApplier) Apply(ptr interface{}) interface{} {
+	params := [...]reflect.Value{reflect.ValueOf(ptr), m.result}
+	if m.value.Call(params[:])[0].Bool() {
+		return m.iresult
+	}
+	return nil
+}
+
+type sliceApplier []Applier
+
+func (s sliceApplier) Apply(ptr interface{}) interface{} {
+	for _, a := range s {
+		ptr = a.Apply(ptr)
+		if ptr == nil {
+			return nil
+		}
+	}
+	return ptr
+}
+
+type nilApplier struct {
+}
+
+func (n nilApplier) Apply(ptr interface{}) interface{} {
+	return ptr
+}
+
+type mapFilterConsumer struct {
+	Consumer
+	mapFilters Applier
+}
+
+func (m *mapFilterConsumer) Consume(ptr interface{}) {
+	MustCanConsume(m)
+	ptr = m.mapFilters.Apply(ptr)
+	if ptr == nil {
+		return
+	}
+	m.Consumer.Consume(ptr)
 }

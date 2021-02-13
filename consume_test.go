@@ -157,6 +157,30 @@ func TestMap(t *testing.T) {
 	assert.Equal([]string{"0", "2", "4", "6", "8", "10"}, zeroTo10By2)
 }
 
+func TestFilterMap(t *testing.T) {
+	assert := assert.New(t)
+	var zeroTo150By30 []string
+	feedInts(t, goconsume.MapFilter(
+		goconsume.Slice(goconsume.AppendTo(&zeroTo150By30), 0, 6),
+		goconsume.NewApplier(),
+		goconsume.NewApplier(
+			func(ptr *int) bool {
+				return (*ptr)%2 == 0
+			},
+			goconsume.NewApplier(func(ptr *int) bool {
+				return (*ptr)%3 == 0
+			}),
+		),
+		func(srcPtr *int, destPtr *string) bool {
+			if (*srcPtr)%5 != 0 {
+				return false
+			}
+			*destPtr = strconv.Itoa(*srcPtr)
+			return true
+		}))
+	assert.Equal([]string{"0", "30", "60", "90", "120", "150"}, zeroTo150By30)
+}
+
 func TestAllImmutability(t *testing.T) {
 	assert := assert.New(t)
 	multipleOfTwo := func(ptr interface{}) bool {

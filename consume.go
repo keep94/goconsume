@@ -3,6 +3,8 @@ package goconsume
 
 import (
 	"reflect"
+
+	"github.com/keep94/common"
 )
 
 const (
@@ -223,17 +225,11 @@ type Applier interface {
 // passed to MapFilter. The returned Applier can be passed as a parameter
 // to MapFilter or to NewApplier.
 func NewApplier(funcs ...interface{}) Applier {
-	if len(funcs) == 0 {
-		return nilApplier{}
-	} else if len(funcs) == 1 {
-		return newApplier(funcs[0])
-	} else {
-		result := make(sliceApplier, len(funcs))
-		for i := range result {
-			result[i] = newApplier(funcs[i])
-		}
-		return result
+	result := make(sliceApplier, len(funcs))
+	for i := range result {
+		result[i] = newApplier(funcs[i])
 	}
+	return common.Join(result, sliceApplier(nil), nilApplier{}).(Applier)
 }
 
 // MapFilter returns a Consumer that passes only filtered and mapped

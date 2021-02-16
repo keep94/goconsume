@@ -157,7 +157,7 @@ func TestMap(t *testing.T) {
 	assert.Equal([]string{"0", "2", "4", "6", "8", "10"}, zeroTo10By2)
 }
 
-func TestFilterMap(t *testing.T) {
+func TestMapFilter(t *testing.T) {
 	assert := assert.New(t)
 	var zeroTo150By30 []string
 	feedInts(t, goconsume.MapFilter(

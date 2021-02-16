@@ -219,6 +219,8 @@ type Applier interface {
 	// if ptr should change. If Apply returns a pointer to a new value, the
 	// new value gets overwritten with each call to Apply.
 	Apply(ptr interface{}) interface{}
+
+	private()
 }
 
 // NewApplier creates an applier from multiple functions like the ones
@@ -507,6 +509,9 @@ func (f *filterApplier) Apply(ptr interface{}) interface{} {
 	return nil
 }
 
+func (f *filterApplier) private() {
+}
+
 type mapApplier struct {
 	value   reflect.Value
 	result  reflect.Value
@@ -521,6 +526,9 @@ func (m *mapApplier) Apply(ptr interface{}) interface{} {
 	return nil
 }
 
+func (m *mapApplier) private() {
+}
+
 type sliceApplier []Applier
 
 func (s sliceApplier) Apply(ptr interface{}) interface{} {
@@ -533,11 +541,17 @@ func (s sliceApplier) Apply(ptr interface{}) interface{} {
 	return ptr
 }
 
+func (s sliceApplier) private() {
+}
+
 type nilApplier struct {
 }
 
 func (n nilApplier) Apply(ptr interface{}) interface{} {
 	return ptr
+}
+
+func (n nilApplier) private() {
 }
 
 type mapFilterConsumer struct {

@@ -1,6 +1,7 @@
 package goconsume_test
 
 import (
+	"fmt"
 	"strconv"
 	"testing"
 
@@ -179,6 +180,28 @@ func TestMapFilter(t *testing.T) {
 			return true
 		}))
 	assert.Equal([]string{"0", "30", "60", "90", "120", "150"}, zeroTo150By30)
+}
+
+func ExampleMapFilter() {
+	var evens []string
+	consumer := goconsume.MapFilter(
+		goconsume.AppendTo(&evens),
+		func(ptr *int) bool {
+			return (*ptr)%2 == 0
+		},
+		func(src *int, dest *string) bool {
+			*dest = strconv.Itoa(*src)
+			return true
+		},
+	)
+	ints := []int{1, 2, 4}
+	for _, i := range ints {
+		if consumer.CanConsume() {
+			consumer.Consume(&i)
+		}
+	}
+	fmt.Println(evens)
+	// Output: [2 4]
 }
 
 func TestAllImmutability(t *testing.T) {

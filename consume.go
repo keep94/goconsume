@@ -210,22 +210,23 @@ func Map(consumer Consumer, mapfunc MapFunc, valuePtr interface{}) Consumer {
 		valuePtr: spareValuePtr.Interface()}
 }
 
-// Interface Applier applies a possible change to a value for MapFilter.
+// Interface Applier represents zero or more functions like the ones passed
+// to MapFilter chained together.
 type Applier interface {
 
-	// Apply applies the possible change always leaving what ptr points to
-	// unchanged. Apply returns nil if ptr should be filtered out; returns
-	// ptr if ptr should be included; or returns a pointer to a new value
-	// if ptr should change. If Apply returns a pointer to a new value, the
-	// new value gets overwritten with each call to Apply.
+	// Apply applies the chained filter and map functions to what ptr points
+	// to while leaving it unchanged. Apply returns nil if ptr should be
+	// filtered out; returns ptr itself; or returns a pointer to a new value.
+	// If Apply returns a pointer to a new value, the new value gets
+	// overwritten with each call to Apply.
 	Apply(ptr interface{}) interface{}
 
 	private()
 }
 
-// NewApplier creates an applier from multiple functions like the ones
-// passed to MapFilter. The returned Applier can be passed as a parameter
-// to MapFilter or to NewApplier.
+// NewApplier creates an Applier from multiple functions like the ones passed
+// to MapFilter chained together. The returned Applier can be passed as a
+// parameter to MapFilter or to NewApplier.
 func NewApplier(funcs ...interface{}) Applier {
 	result := make(sliceApplier, len(funcs))
 	for i := range result {
@@ -246,6 +247,10 @@ func NewApplier(funcs ...interface{}) Applier {
 // first argument unchanged, but use it to set their second argument.
 // This second argument is what gets passed to the next function in funcs
 // or to consumer if it is the last function in funcs.
+//
+// The NewApplier function can return an Applier which represents zero or
+// more of these functions chained together. Applier instances can be passed
+// as parameters to MapFilter just like the functions mentioned above.
 func MapFilter(consumer Consumer, funcs ...interface{}) Consumer {
 	return &mapFilterConsumer{
 		Consumer:   consumer,

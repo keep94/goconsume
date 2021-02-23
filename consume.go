@@ -89,16 +89,11 @@ func AppendPtrsTo(aPointerSlicePointer interface{}) Consumer {
 // returned consumer consumes a value, each consumer passed in that is able to
 // consume a value consumes that value. CanConsume() of returned consumer
 // returns false when the CanConsume() method of each consumer passed in
-// returns false. Caller should use the returned Consumer instead of the
-// passed in consumers. Otherwise the CanConsume method of returned consumer
-// may not work correctly. The consumers passed to Compose must not modify
-// values being consumed. Wrap any such consumer that modifies the values it
-// consumes with the Copy method or use ComposeWithCopy.
+// returns false.
 func Compose(consumers ...Consumer) Consumer {
 	consumerList := make([]Consumer, len(consumers))
 	copy(consumerList, consumers)
 	result := &multiConsumer{consumers: consumerList}
-	result.filterFinished()
 	return result
 }
 
@@ -129,7 +124,6 @@ func ComposeWithCopy(consumers []Consumer, valuePtr interface{}) Consumer {
 		consumerList[i] = Copy(consumers[i], valuePtr)
 	}
 	result := &multiConsumer{consumers: consumerList}
-	result.filterFinished()
 	return result
 }
 
@@ -384,6 +378,7 @@ type multiConsumer struct {
 }
 
 func (m *multiConsumer) CanConsume() bool {
+	m.filterFinished()
 	return len(m.consumers) > 0
 }
 
@@ -392,7 +387,6 @@ func (m *multiConsumer) Consume(ptr interface{}) {
 	for _, consumer := range m.consumers {
 		consumer.Consume(ptr)
 	}
-	m.filterFinished()
 }
 
 func (m *multiConsumer) filterFinished() {

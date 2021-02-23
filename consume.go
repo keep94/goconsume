@@ -231,7 +231,7 @@ func NewApplier(funcs ...interface{}) Applier {
 
 // MapFilter returns a Consumer that passes only filtered and mapped
 // values onto the consumer parameter. The returned Consumer applies
-// each function in funcs to to the value passed to its Consume method.
+// each function in funcs to the value passed to its Consume method.
 // The resulting value is then passed to the Consume method of the
 // consumer parameter. Each function in func returns a bool and takes
 // one or two pointer arguments to values. If a function returns false,
@@ -246,9 +246,16 @@ func NewApplier(funcs ...interface{}) Applier {
 // more of these functions chained together. Applier instances can be passed
 // as parameters to MapFilter just like the functions mentioned above.
 func MapFilter(consumer Consumer, funcs ...interface{}) Consumer {
+	mapFilters := NewApplier(funcs...)
+	if mf, ok := consumer.(*mapFilterConsumer); ok {
+		return &mapFilterConsumer{
+			Consumer:   mf.Consumer,
+			mapFilters: NewApplier(mapFilters, mf.mapFilters),
+		}
+	}
 	return &mapFilterConsumer{
 		Consumer:   consumer,
-		mapFilters: NewApplier(funcs...),
+		mapFilters: mapFilters,
 	}
 }
 

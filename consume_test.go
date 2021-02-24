@@ -73,7 +73,7 @@ func TestComposeUseIndividual(t *testing.T) {
 			return true
 		})
 	consumerThree := goconsume.Slice(goconsume.AppendTo(&ints), 0, 3)
-	composite := goconsume.Compose(consumerOne, consumerThree)
+	composite := goconsume.Compose(consumerOne, consumerThree, goconsume.Nil())
 	assert.True(composite.CanConsume())
 	i := 1
 	composite.Consume(&i)

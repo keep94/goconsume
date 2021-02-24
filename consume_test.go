@@ -62,6 +62,37 @@ func TestPageConsumer(t *testing.T) {
 	assert.Panics(func() { pager.Consume(new(int)) })
 }
 
+func TestComposeUseIndividual(t *testing.T) {
+	assert := assert.New(t)
+	var strs []string
+	var ints []int
+	consumerOne := goconsume.MapFilter(
+		goconsume.Slice(goconsume.AppendTo(&strs), 0, 1),
+		func(src *int, dest *string) bool {
+			*dest = strconv.Itoa(*src)
+			return true
+		})
+	consumerThree := goconsume.Slice(goconsume.AppendTo(&ints), 0, 3)
+	composite := goconsume.Compose(consumerOne, consumerThree)
+	assert.True(composite.CanConsume())
+	i := 1
+	composite.Consume(&i)
+	assert.True(composite.CanConsume())
+	i = 2
+	composite.Consume(&i)
+	assert.True(composite.CanConsume())
+	i = 3
+
+	// Use up individual consumer
+	consumerThree.Consume(&i)
+
+	// Now the composite consumer should return false
+	assert.False(composite.CanConsume())
+
+	assert.Equal([]string{"1"}, strs)
+	assert.Equal([]int{1, 2, 3}, ints)
+}
+
 func TestCompose(t *testing.T) {
 	assert := assert.New(t)
 	var zeroToFive []int

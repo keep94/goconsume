@@ -20,6 +20,26 @@ func TestNestedMapFilter(t *testing.T) {
 	assert.IsType((*appendConsumer)(nil), mpc.Consumer)
 }
 
+func TestMapFilterWithNil(t *testing.T) {
+	assert := assert.New(t)
+	var ints []int
+	c := MapFilter(AppendTo(&ints), NewApplier())
+	assert.IsType((*appendConsumer)(nil), c)
+}
+
+func TestComposeZero(t *testing.T) {
+	assert := assert.New(t)
+	c := Compose()
+	assert.Equal(nilConsumer{}, c)
+}
+
+func TestComposeOne(t *testing.T) {
+	assert := assert.New(t)
+	var ints []int
+	c := Compose(AppendTo(&ints))
+	assert.IsType((*appendConsumer)(nil), c)
+}
+
 func appendStr(s string) func(src, dest *string) bool {
 	return func(src, dest *string) bool {
 		*dest = *src + s

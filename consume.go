@@ -17,6 +17,7 @@ const (
 type Consumer interface {
 
 	// CanConsume returns true if this instance can consume a value
+	// Once CanConsume returns false, it should always return false.
 	CanConsume() bool
 
 	// Consume consumes the value that ptr points to. Consume panics if
@@ -91,10 +92,17 @@ func AppendPtrsTo(aPointerSlicePointer interface{}) Consumer {
 // returns false when the CanConsume() method of each consumer passed in
 // returns false.
 func Compose(consumers ...Consumer) Consumer {
-	consumerList := make([]Consumer, len(consumers))
-	copy(consumerList, consumers)
-	result := &multiConsumer{consumers: consumerList}
-	return result
+	clen := len(consumers)
+	switch clen {
+	case 0:
+		return nilConsumer{}
+	case 1:
+		return consumers[0]
+	default:
+		consumerList := make([]Consumer, clen)
+		copy(consumerList, consumers)
+		return &multiConsumer{consumers: consumerList}
+	}
 }
 
 // Copy returns a consumer that copies the value it consumes using assignment
@@ -123,8 +131,7 @@ func ComposeWithCopy(consumers []Consumer, valuePtr interface{}) Consumer {
 	for i := range consumers {
 		consumerList[i] = Copy(consumers[i], valuePtr)
 	}
-	result := &multiConsumer{consumers: consumerList}
-	return result
+	return Compose(consumerList...)
 }
 
 // Slice returns a Consumer that passes the start th value consumed
@@ -247,6 +254,9 @@ func NewApplier(funcs ...interface{}) Applier {
 // as parameters to MapFilter just like the functions mentioned above.
 func MapFilter(consumer Consumer, funcs ...interface{}) Consumer {
 	mapFilters := NewApplier(funcs...)
+	if _, ok := mapFilters.(nilApplier); ok {
+		return consumer
+	}
 	if mf, ok := consumer.(*mapFilterConsumer); ok {
 		return &mapFilterConsumer{
 			Consumer:   mf.Consumer,

@@ -16,7 +16,7 @@ const (
 // support assignment.
 type Consumer interface {
 
-	// CanConsume returns true if this instance can consume a value
+	// CanConsume returns true if this instance can consume a value.
 	// Once CanConsume returns false, it should always return false.
 	CanConsume() bool
 

@@ -1,7 +1,3 @@
 # goconsume
 
-Consumers written in Go.
-
-## Using
-
-	import "github.com/keep94/goconsume"
+**This repo is now deprecated in favor of github.com/keep94/consume**

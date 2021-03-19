@@ -1,4 +1,4 @@
-// Package goconsume provides useful ways to consume values.
+// This package is now deprecated in favor of github.com/keep94/consume.
 package goconsume
 
 import (
